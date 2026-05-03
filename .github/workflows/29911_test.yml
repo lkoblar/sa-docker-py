@@ -72,16 +72,22 @@ jobs:
         run: |
           which ${{ matrix.python-bin }}
           ${{ matrix.python-bin }} --version
-          ${{ matrix.python-bin }} -m pip --version
 
-      - name: Namesti odvisnosti
+      - name: Ustvari virtualno okolje
         shell: bash
         run: |
-          ${{ matrix.python-bin }} -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then ${{ matrix.python-bin }} -m pip install -r requirements.txt; fi
-          ${{ matrix.python-bin }} -m pip install pytest
+          ${{ matrix.python-bin }} -m venv .venv
+          ./.venv/bin/python --version
+          ./.venv/bin/pip --version
+
+      - name: Namesti odvisnosti v venv
+        shell: bash
+        run: |
+          ./.venv/bin/python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then ./.venv/bin/python -m pip install -r requirements.txt; fi
+          ./.venv/bin/python -m pip install pytest
 
       - name: Pozeni teste
         shell: bash
         run: |
-          ${{ matrix.python-bin }} -m pytest tests/
+          ./.venv/bin/python -m pytest tests/
