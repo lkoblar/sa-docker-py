@@ -25,7 +25,7 @@ jobs:
           elif [ -f "package.json" ] && grep -q "\"test\"" package.json; then
             echo "Najden test script v package.json." > ci_artifacts/status.txt
           else
-            echo "Napaka: testne skripte ne obstajajo." 1> /dev/null 2> ci_artifacts/napaka.txt
+            echo "Napaka: testne skripte ne obstajajo." 2> ci_artifacts/napaka.txt
             exit 1
           fi
 
@@ -44,7 +44,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: ["3.10", "3.11"]
+        python-bin: ["python"]
 
     steps:
       - name: Checkout repozitorija
@@ -67,19 +67,21 @@ jobs:
             exit 1
           fi
 
-      - name: Nastavi Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
+      - name: Preveri Python na runnerju
+        shell: bash
+        run: |
+          which ${{ matrix.python-bin }}
+          ${{ matrix.python-bin }} --version
+          ${{ matrix.python-bin }} -m pip --version
 
       - name: Namesti odvisnosti
         shell: bash
         run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install pytest
+          ${{ matrix.python-bin }} -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then ${{ matrix.python-bin }} -m pip install -r requirements.txt; fi
+          ${{ matrix.python-bin }} -m pip install pytest
 
       - name: Pozeni teste
         shell: bash
         run: |
-          pytest tests/
+          ${{ matrix.python-bin }} -m pytest tests/
