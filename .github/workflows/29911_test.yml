@@ -1,0 +1,85 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  preveri_teste:
+    name: Preveri obstoj testov
+    runs-on: [self-hosted, linux, x64]
+
+    steps:
+      - name: Checkout repozitorija
+        uses: actions/checkout@v5
+
+      - name: Preveri testne skripte in shrani stderr
+        shell: bash
+        run: |
+          mkdir -p ci_artifacts
+          touch ci_artifacts/napaka.txt
+
+          if [ -d "tests" ] && find tests -type f \( -name "test_*.py" -o -name "*_test.py" \) | grep -q .; then
+            echo "Najdeni Python testi." > ci_artifacts/status.txt
+          elif [ -f "package.json" ] && grep -q "\"test\"" package.json; then
+            echo "Najden test script v package.json." > ci_artifacts/status.txt
+          else
+            echo "Napaka: testne skripte ne obstajajo." 1> /dev/null 2> ci_artifacts/napaka.txt
+            exit 1
+          fi
+
+      - name: Nalozi artefakte prvega posla
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-check-artifacts
+          path: ci_artifacts/
+
+  pozene_teste:
+    name: Pripravi okolje in poženi teste
+    needs: preveri_teste
+    if: ${{ needs.preveri_teste.result == 'success' }}
+    runs-on: [self-hosted, linux, x64]
+
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+
+    steps:
+      - name: Checkout repozitorija
+        uses: actions/checkout@v5
+
+      - name: Prenesi artefakte prvega posla
+        uses: actions/download-artifact@v4
+        with:
+          name: test-check-artifacts
+          path: preneseno/
+
+      - name: Preveri vsebino napaka.txt
+        shell: bash
+        run: |
+          echo "Vsebina napaka.txt:"
+          cat preneseno/napaka.txt || true
+
+          if [ -s preneseno/napaka.txt ]; then
+            echo "Datoteka napaka.txt ni prazna, testi se ne bodo izvajali."
+            exit 1
+          fi
+
+      - name: Nastavi Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Namesti odvisnosti
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install pytest
+
+      - name: Pozeni teste
+        shell: bash
+        run: |
+          pytest tests/
